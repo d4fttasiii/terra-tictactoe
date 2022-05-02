@@ -1,0 +1,10 @@
+{
+  "localterra": {
+    "tiktaktoe": {
+      "codeId": "4",
+      "contractAddresses": {
+        "default": "terra1tndcaqxkpc5ce9qee5ggqf430mr2z3pefe5wj6"
+      }
+    }
+  }
+}

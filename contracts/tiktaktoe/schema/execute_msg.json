@@ -1,0 +1,172 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ExecuteMsg",
+  "anyOf": [
+    {
+      "type": "object",
+      "required": [
+        "update_admin"
+      ],
+      "properties": {
+        "update_admin": {
+          "type": "object",
+          "required": [
+            "new_admin"
+          ],
+          "properties": {
+            "new_admin": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "update_config"
+      ],
+      "properties": {
+        "update_config": {
+          "type": "object",
+          "required": [
+            "dimension",
+            "fee_percentage",
+            "threshold"
+          ],
+          "properties": {
+            "dimension": {
+              "type": "integer",
+              "format": "uint8",
+              "minimum": 0.0
+            },
+            "fee_percentage": {
+              "type": "integer",
+              "format": "uint8",
+              "minimum": 0.0
+            },
+            "threshold": {
+              "type": "integer",
+              "format": "uint8",
+              "minimum": 0.0
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "create_game"
+      ],
+      "properties": {
+        "create_game": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "cancel_game"
+      ],
+      "properties": {
+        "cancel_game": {
+          "type": "object",
+          "required": [
+            "game_id"
+          ],
+          "properties": {
+            "game_id": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "join_game"
+      ],
+      "properties": {
+        "join_game": {
+          "type": "object",
+          "required": [
+            "game_id"
+          ],
+          "properties": {
+            "game_id": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "make_move"
+      ],
+      "properties": {
+        "make_move": {
+          "type": "object",
+          "required": [
+            "game_id",
+            "x",
+            "y"
+          ],
+          "properties": {
+            "game_id": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "x": {
+              "type": "integer",
+              "format": "uint8",
+              "minimum": 0.0
+            },
+            "y": {
+              "type": "integer",
+              "format": "uint8",
+              "minimum": 0.0
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "withdraw_price"
+      ],
+      "properties": {
+        "withdraw_price": {
+          "type": "object",
+          "required": [
+            "game_id"
+          ],
+          "properties": {
+            "game_id": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  ]
+}
