@@ -1,3 +1,3 @@
 // sync-ed from root via `tr sync-refs`
 import config from "../refs.terrain.json"
-export const contractAdress = (wallet) => config[wallet.network.name].tiktaktoe.contractAddresses.default
+export const contractAdress = (wallet) => config[wallet.network.name].terra_tictactoe.contractAddresses.default

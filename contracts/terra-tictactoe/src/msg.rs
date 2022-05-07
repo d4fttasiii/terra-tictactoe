@@ -1,4 +1,4 @@
-use cosmwasm_std::{Coin};
+use cosmwasm_std::{Coin, Addr};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -8,6 +8,7 @@ use crate::state::Game;
 #[serde(rename_all = "snake_case")]
 pub struct InstantiateMsg {
     pub min_bet: Coin,
+    pub terrand_address: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -46,7 +47,7 @@ pub enum QueryMsg {
     GetGames {},
     GetGameById { id: u64 },
     GetGamesByAddress { address: String },
-    GetLeaderboard { address: String },
+    GetLeaderboard { },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -70,5 +71,11 @@ pub struct GamesResponse {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct LeaderboardResponse {
+    pub entries: Vec<LeaderBoardEntry>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct LeaderBoardEntry {
+    pub player: Addr,
     pub win_count: u64,
 }

@@ -1,0 +1,1 @@
+28ce91f74e9fd723bba3855d5574fb97636e1d7c0d0196075a2c7a8e86553650  ./target/wasm32-unknown-unknown/release/terra_tictactoe.wasm

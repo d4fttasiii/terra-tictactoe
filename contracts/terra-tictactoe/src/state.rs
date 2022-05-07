@@ -12,6 +12,7 @@ pub struct Config {
     pub threshold: u8,
     pub dimension: u8,
     pub min_bet: Coin,
+    pub terrand_address: Addr,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -20,7 +21,7 @@ pub struct Game {
     pub host: Addr,
     pub bet: Coin,
     pub state: GameState,
-    pub grid: Vec<Vec<u8>>,
+    pub grid: Vec<Vec<i8>>,
     pub opponent: Addr,
     pub next_player: Addr,
     pub updated_at: Timestamp,

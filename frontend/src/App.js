@@ -28,7 +28,7 @@ import CircleIcon from '@mui/icons-material/Circle';
 import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
 
 function App() {
-  const [bet, setBet] = useState();
+  const [bet, setBet] = useState(100000);
   const [myGames, setMyGames] = useState([]);
   const [selectedGame, setSelectedGame] = useState(undefined);
   const [updating, setUpdating] = useState(true);

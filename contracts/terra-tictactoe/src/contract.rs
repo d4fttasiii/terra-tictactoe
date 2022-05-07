@@ -1,8 +1,8 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Addr, BankMsg, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Order, Response,
-    StdResult, SubMsg,
+    to_binary, Addr, BankMsg, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Order, QueryRequest,
+    Response, StdResult, SubMsg, WasmQuery,
 };
 use cw0::maybe_addr;
 use cw2::set_contract_version;
@@ -10,15 +10,16 @@ use cw_storage_plus::U64Key;
 
 use crate::error::ContractError;
 use crate::msg::{
-    ExecuteMsg, GameResponse, GamesResponse, InstantiateMsg, LeaderboardResponse, LockedResponse,
-    QueryMsg,
+    ExecuteMsg, GameResponse, GamesResponse, InstantiateMsg, LeaderBoardEntry, LeaderboardResponse,
+    LockedResponse, QueryMsg,
 };
 use crate::state::{
     games, next_id, Config, Game, GameState, ADMIN, CONFIG, GAMES_COUNT, LEADERBOARD,
 };
+use crate::terrand::{LatestRandomResponse, QueryMsg as TerrandQueryMsg};
 
 // version info for migration info
-const CONTRACT_NAME: &str = "crates.io:tiktaktoe";
+const CONTRACT_NAME: &str = "crates.io:terra_tictactoe";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -34,6 +35,7 @@ pub fn instantiate(
         dimension: 6,
         threshold: 4,
         min_bet: msg.min_bet,
+        terrand_address: deps.api.addr_validate(&msg.terrand_address)?,
     };
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     CONFIG.save(deps.storage, &state)?;
@@ -104,11 +106,24 @@ pub fn try_create_game(
 
     let config = CONFIG.load(deps.storage)?;
     let id = next_id(deps.storage)?;
-    let mut grid: Vec<Vec<u8>> = Vec::new();
-    for _x in 0..config.dimension {
-        let mut row: Vec<u8> = Vec::new();
-        for _y in 0..config.dimension {
-            row.push(0);
+    let mut grid: Vec<Vec<i8>> = Vec::new();
+    let mut disabled_cells: Vec<(u8, u8)> = Vec::new();
+    let mut round: usize = 0;
+    for _ in 0..config.threshold {
+        let x = get_random(deps.as_ref(), round, config.dimension)?;
+        round += 1;
+        let y = get_random(deps.as_ref(), round, config.dimension)?;
+        round += 1;
+        disabled_cells.push((x, y));
+    }
+    for i in 0..config.dimension {
+        let mut row: Vec<i8> = Vec::new();
+        for j in 0..config.dimension {
+            if disabled_cells.contains(&(i, j)) {
+                row.push(-1)
+            } else {
+                row.push(0);
+            }
         }
         grid.push(row);
     }
@@ -134,6 +149,28 @@ pub fn try_create_game(
     Ok(Response::new()
         .add_attribute("method", "try_create_game")
         .add_attribute("id", id.to_string()))
+}
+
+fn get_random(deps: Deps, round: usize, to: u8) -> StdResult<u8> {
+    let config = CONFIG.load(deps.storage)?;
+    let response: LatestRandomResponse =
+        deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
+            contract_addr: config.terrand_address.to_string(),
+            msg: to_binary(&TerrandQueryMsg::LatestDrand {})?,
+        }))?;
+    let randomness = vector_as_u8_array(response.randomness.to_vec(), round);
+    let random_big_number = u16::from_be_bytes(randomness);
+    let random_ranged_number = random_big_number.wrapping_rem_euclid(to.into()) as u8;
+
+    Ok(random_ranged_number)
+}
+
+fn vector_as_u8_array(vector: Vec<u8>, start: usize) -> [u8; 2] {
+    let mut arr = [0u8; 2];
+    arr[0] = vector[start];
+    arr[1] = vector[start + 1];
+
+    arr
 }
 
 pub fn try_cancel_game(
@@ -178,9 +215,7 @@ pub fn try_join_game(
         Some(game) if game.state != GameState::New => {
             Err(ContractError::NotAllowedInCurrentState { state: game.state })
         }
-        Some(game) if game.bet.amount != amount => {
-            Err(ContractError::BetAmounTooLow {})
-        }
+        Some(game) if game.bet.amount != amount => Err(ContractError::BetAmounTooLow {}),
         Some(game) if game.bet.denom != info.funds[0].denom => {
             Err(ContractError::BetDenomInvalid {})
         }
@@ -299,8 +334,8 @@ pub fn try_withdraw_price(
         .add_attribute("method", "try_withdraw_price"));
 }
 
-fn get_mark_for_cell(game: &Game, x: usize, y: usize) -> Result<u8, ContractError> {
-    if game.grid[x][y] != 0 {
+fn get_mark_for_cell(game: &Game, x: usize, y: usize) -> Result<i8, ContractError> {
+    if game.grid[x][y] != 0 || game.grid[x][y] == -1 {
         return Err(ContractError::MoveNotAllow {});
     } else if game.host.to_string() == game.next_player {
         Ok(1)
@@ -328,8 +363,16 @@ fn is_game_completed(game: &Game, dimension: u16, threshold: u16) -> Result<bool
         let pos_x = usize::from(x);
         for y in 0..dimension {
             let pos_y = usize::from(y);
-            sum_vertically += game.grid[pos_x][pos_y] as u16;
-            sum_horizontally += game.grid[pos_y][pos_x] as u16;
+            sum_vertically += if game.grid[pos_x][pos_y].is_negative() {
+                0
+            } else {
+                game.grid[pos_x][pos_y] as u16
+            };
+            sum_horizontally += if game.grid[pos_y][pos_x].is_negative() {
+                0
+            } else {
+                game.grid[pos_y][pos_x] as u16
+            };
         }
         if (sum_vertically == threshold)
             || (sum_vertically == opponent_threshold)
@@ -342,8 +385,16 @@ fn is_game_completed(game: &Game, dimension: u16, threshold: u16) -> Result<bool
         sum_horizontally = 0;
 
         let diag_y = usize::from(dimension - 1 - x);
-        sum_diagonally_x += game.grid[pos_x][pos_x] as u16;
-        sum_diagonally_y += game.grid[diag_y][pos_x] as u16;
+        sum_diagonally_x += if game.grid[pos_x][pos_x].is_negative() {
+            0
+        } else {
+            game.grid[pos_x][pos_x] as u16
+        };
+        sum_diagonally_y += if game.grid[diag_y][pos_x].is_negative() {
+            0
+        } else {
+            game.grid[diag_y][pos_x] as u16
+        };
     }
 
     if (sum_diagonally_x == threshold)
@@ -392,7 +443,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::GetGamesByAddress { address } => {
             to_binary(&query_games_by_address(deps, address)?)
         }
-        QueryMsg::GetLeaderboard { address } => to_binary(&query_leaderboard(deps, address)?),
+        QueryMsg::GetLeaderboard {} => to_binary(&query_leaderboard(deps)?),
     }
 }
 
@@ -451,21 +502,33 @@ pub fn query_games_by_address(deps: Deps, address: String) -> StdResult<GamesRes
     Ok(GamesResponse { games: games })
 }
 
-pub fn query_leaderboard(deps: Deps, address: String) -> StdResult<LeaderboardResponse> {
-    let addr = deps.api.addr_validate(&address)?;
-    let leaderboard_entry = LEADERBOARD.may_load(deps.storage, addr)?;
-    let win_count = match leaderboard_entry {
-        None => 0,
-        Some(wc) => wc,
-    };
+pub fn query_leaderboard(deps: Deps) -> StdResult<LeaderboardResponse> {
+    let leaderboard_entries = LEADERBOARD
+        .range(deps.storage, None, None, Order::Descending)
+        .map(|item| {
+            let (k, win_count) = item.unwrap();
+            let address = match std::str::from_utf8(&k) {
+                Ok(v) => v,
+                Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
+            };
+            let player = Addr::unchecked(address);
+            LeaderBoardEntry {
+                player: player,
+                win_count,
+            }
+        })
+        .collect();
 
-    Ok(LeaderboardResponse { win_count })
+    Ok(LeaderboardResponse {
+        entries: leaderboard_entries,
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
+    use crate::mock_querier::mock_dependencies;
+    use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
     use cosmwasm_std::{coins, from_binary, Uint128};
     use cw_controllers::AdminResponse;
 
@@ -478,6 +541,7 @@ mod tests {
                 amount: Uint128::new(10_000_000),
                 denom: "uust".to_string(),
             },
+            terrand_address: MOCK_CONTRACT_ADDR.to_string(),
         };
         let info = mock_info("creator", &coins(2, "token"));
         let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -500,6 +564,7 @@ mod tests {
                 amount: Uint128::new(10_000_000),
                 denom: "uust".to_string(),
             },
+            terrand_address: MOCK_CONTRACT_ADDR.to_string(),
         };
         let info = mock_info("creator", &coins(2, "token"));
         let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -523,6 +588,7 @@ mod tests {
                 amount: Uint128::new(10_000_000),
                 denom: "uust".to_string(),
             },
+            terrand_address: MOCK_CONTRACT_ADDR.to_string(),
         };
         let info = mock_info("creator", &coins(2, "token"));
         let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -560,6 +626,7 @@ mod tests {
                 amount: Uint128::new(10_000_000),
                 denom: "uust".to_string(),
             },
+            terrand_address: MOCK_CONTRACT_ADDR.to_string(),
         };
         let info = mock_info("creator", &coins(2, "token"));
         let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -595,6 +662,7 @@ mod tests {
                 amount: Uint128::new(10_000_000),
                 denom: "uust".to_string(),
             },
+            terrand_address: MOCK_CONTRACT_ADDR.to_string(),
         };
         let info = mock_info("creator", &coins(2, "token"));
         let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -630,12 +698,14 @@ mod tests {
     #[test]
     fn full_game_until_host_wins() {
         let mut deps = mock_dependencies(&coins(2, "token"));
+        deps.querier.with_terrand();
 
         let msg = InstantiateMsg {
             min_bet: Coin {
                 amount: Uint128::new(10_000_000),
                 denom: "uust".to_string(),
             },
+            terrand_address: MOCK_CONTRACT_ADDR.to_string(),
         };
         let info = mock_info("creator", &coins(2, "token"));
         let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -717,15 +787,9 @@ mod tests {
         assert_eq!("anyone", value.game.winner.to_string());
 
         // Check leaderboard
-        let res = query(
-            deps.as_ref(),
-            mock_env(),
-            QueryMsg::GetLeaderboard {
-                address: "anyone".to_string(),
-            },
-        )
-        .unwrap();
+        let res = query(deps.as_ref(), mock_env(), QueryMsg::GetLeaderboard {}).unwrap();
         let value: LeaderboardResponse = from_binary(&res).unwrap();
-        assert_eq!(1, value.win_count);
+        assert_eq!(1, value.entries[0].win_count);
+        assert_eq!("anyone", value.entries[0].player);
     }
 }

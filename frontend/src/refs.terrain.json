@@ -1,9 +1,17 @@
 {
   "localterra": {
-    "tiktaktoe": {
+    "terra_tictactoe": {
       "codeId": "4",
       "contractAddresses": {
         "default": "terra1tndcaqxkpc5ce9qee5ggqf430mr2z3pefe5wj6"
+      }
+    }
+  },
+  "testnet": {
+    "terra_tictactoe": {
+      "codeId": "70462",
+      "contractAddresses": {
+        "default": "terra1ft9vtfr9nvqxltprze58cz3gedcgvda4u9xkga"
       }
     }
   }

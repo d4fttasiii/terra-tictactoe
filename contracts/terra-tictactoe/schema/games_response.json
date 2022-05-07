@@ -1,55 +1,16 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Game",
+  "title": "GamesResponse",
   "type": "object",
   "required": [
-    "bet",
-    "game_id",
-    "grid",
-    "host",
-    "next_player",
-    "opponent",
-    "state",
-    "updated_at",
-    "winner"
+    "games"
   ],
   "properties": {
-    "bet": {
-      "$ref": "#/definitions/Coin"
-    },
-    "game_id": {
-      "type": "integer",
-      "format": "uint64",
-      "minimum": 0.0
-    },
-    "grid": {
+    "games": {
       "type": "array",
       "items": {
-        "type": "array",
-        "items": {
-          "type": "integer",
-          "format": "uint8",
-          "minimum": 0.0
-        }
+        "$ref": "#/definitions/Game"
       }
-    },
-    "host": {
-      "$ref": "#/definitions/Addr"
-    },
-    "next_player": {
-      "$ref": "#/definitions/Addr"
-    },
-    "opponent": {
-      "$ref": "#/definitions/Addr"
-    },
-    "state": {
-      "$ref": "#/definitions/GameState"
-    },
-    "updated_at": {
-      "$ref": "#/definitions/Timestamp"
-    },
-    "winner": {
-      "$ref": "#/definitions/Addr"
     }
   },
   "definitions": {
@@ -69,6 +30,58 @@
         },
         "denom": {
           "type": "string"
+        }
+      }
+    },
+    "Game": {
+      "type": "object",
+      "required": [
+        "bet",
+        "game_id",
+        "grid",
+        "host",
+        "next_player",
+        "opponent",
+        "state",
+        "updated_at",
+        "winner"
+      ],
+      "properties": {
+        "bet": {
+          "$ref": "#/definitions/Coin"
+        },
+        "game_id": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "grid": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int8"
+            }
+          }
+        },
+        "host": {
+          "$ref": "#/definitions/Addr"
+        },
+        "next_player": {
+          "$ref": "#/definitions/Addr"
+        },
+        "opponent": {
+          "$ref": "#/definitions/Addr"
+        },
+        "state": {
+          "$ref": "#/definitions/GameState"
+        },
+        "updated_at": {
+          "$ref": "#/definitions/Timestamp"
+        },
+        "winner": {
+          "$ref": "#/definitions/Addr"
         }
       }
     },

@@ -43,7 +43,7 @@ const _exec = (msg, fee = new Fee(200000, { uluna: 10000 })) =>
     }
   };
 
-const _execAndSend = (msg, bet, fee = new Fee(200000, { uluna: 10000 })) =>
+const _execAndSend = (msg, bet, fee = new Fee(2000000, { uluna: 25000 })) =>
   async (wallet) => {
     const lcd = new LCDClient({
       URL: wallet.network.lcd,
@@ -52,6 +52,7 @@ const _execAndSend = (msg, bet, fee = new Fee(200000, { uluna: 10000 })) =>
 
     const { result } = await wallet.post({
       fee,
+      gasPrices: { uluna: 0.01133 },
       msgs: [
         new MsgExecuteContract(
           wallet.walletAddress,
@@ -83,9 +84,7 @@ const _execAndSend = (msg, bet, fee = new Fee(200000, { uluna: 10000 })) =>
 
 export const createGame = async (wallet, bet) => {
   _execAndSend({
-    create_game: {
-      dimensions: 4
-    }
+    create_game: {}
   }, bet)(wallet);
 };
 

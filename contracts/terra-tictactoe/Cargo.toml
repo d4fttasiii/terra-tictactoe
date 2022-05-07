@@ -1,5 +1,5 @@
 [package]
-name = "tiktaktoe"
+name = "terra-tictactoe"
 version = "0.1.0"
 authors = ["peter.tasner"]
 edition = "2018"
@@ -53,3 +53,4 @@ thiserror = { version = "1.0.26" }
 
 [dev-dependencies]
 cosmwasm-schema = { version = "0.16.7" }
+terra-cosmwasm = { version = "2.2.0" }

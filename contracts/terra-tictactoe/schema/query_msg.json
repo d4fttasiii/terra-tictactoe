@@ -87,15 +87,7 @@
       ],
       "properties": {
         "get_leaderboard": {
-          "type": "object",
-          "required": [
-            "address"
-          ],
-          "properties": {
-            "address": {
-              "type": "string"
-            }
-          }
+          "type": "object"
         }
       },
       "additionalProperties": false
