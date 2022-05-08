@@ -9,4 +9,7 @@ module.exports = {
   custom_tester_2: {
     privateKey: "fGl1yNoUnnNUqTUXXhxH9vJU0htlz9lWwBt3fQw+ixw=",
   },
+  testnet_1: {
+    mnemonic: "disease amateur switch any siren wise second feed balcony frost vapor exact student decrease ozone large flight parent area network casino title gallery chunk"
+  }
 };

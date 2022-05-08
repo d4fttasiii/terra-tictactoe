@@ -1,4 +1,4 @@
-use cosmwasm_std::{Coin, Addr};
+use cosmwasm_std::{Addr, Coin};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -37,6 +37,9 @@ pub enum ExecuteMsg {
     WithdrawPrice {
         game_id: u64,
     },
+    WithdrawFunds {
+        funds_to_withdraw: Vec<Coin>,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -47,7 +50,7 @@ pub enum QueryMsg {
     GetGames {},
     GetGameById { id: u64 },
     GetGamesByAddress { address: String },
-    GetLeaderboard { },
+    GetLeaderboard {},
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

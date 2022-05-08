@@ -3,17 +3,17 @@
     "_base": {
       "store": {
         "fee": {
-          "gasLimit": 10000000,
+          "gasLimit": 350000,
           "amount": {
-            "uluna": 1000000
+            "uluna": 100000
           }
         }
       },
       "instantiation": {
         "fee": {
-          "gasLimit": 10000000,
+          "gasLimit": 350000,
           "amount": {
-            "uluna": 1000000
+            "uluna": 100000
           }
         },
         "instantiateMsg": {

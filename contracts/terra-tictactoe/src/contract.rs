@@ -1,14 +1,16 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Addr, BankMsg, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Order, QueryRequest,
-    Response, StdResult, SubMsg, WasmQuery,
+    to_binary, Addr, BankMsg, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Order, Response,
+    StdResult, SubMsg,
 };
 use cw0::maybe_addr;
 use cw2::set_contract_version;
 use cw_storage_plus::U64Key;
 
+use crate::asserts::{assert_host_bet, assert_is_locked};
 use crate::error::ContractError;
+use crate::game::{get_mark_for_cell, get_next_player, is_game_completed};
 use crate::msg::{
     ExecuteMsg, GameResponse, GamesResponse, InstantiateMsg, LeaderBoardEntry, LeaderboardResponse,
     LockedResponse, QueryMsg,
@@ -16,7 +18,7 @@ use crate::msg::{
 use crate::state::{
     games, next_id, Config, Game, GameState, ADMIN, CONFIG, GAMES_COUNT, LEADERBOARD,
 };
-use crate::terrand::{LatestRandomResponse, QueryMsg as TerrandQueryMsg};
+use crate::utils::{generate_random_u8, get_randomness};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:terra_tictactoe";
@@ -65,7 +67,10 @@ pub fn execute(
         ExecuteMsg::CancelGame { game_id } => try_cancel_game(deps, info, game_id),
         ExecuteMsg::JoinGame { game_id } => try_join_game(_env, deps, info, game_id),
         ExecuteMsg::MakeMove { game_id, x, y } => try_make_move(_env, deps, info, game_id, x, y),
-        ExecuteMsg::WithdrawPrice { game_id } => try_withdraw_price(_env, deps, info, game_id),
+        ExecuteMsg::WithdrawPrice { game_id } => try_withdraw_price(_env, deps, game_id),
+        ExecuteMsg::WithdrawFunds { funds_to_withdraw } => {
+            try_withdraw_funds(deps, info, funds_to_withdraw)
+        }
     }
 }
 
@@ -101,21 +106,24 @@ pub fn try_create_game(
     deps: DepsMut,
     info: MessageInfo,
 ) -> Result<Response, ContractError> {
-    assert_is_locked(deps.as_ref(), &info.sender)?;
+    assert_is_locked(deps.as_ref())?;
     assert_host_bet(deps.as_ref(), &info.funds[0])?;
 
     let config = CONFIG.load(deps.storage)?;
-    let id = next_id(deps.storage)?;
+    let randomness = get_randomness(deps.as_ref().querier, config.terrand_address.to_string())?;
+
     let mut grid: Vec<Vec<i8>> = Vec::new();
     let mut disabled_cells: Vec<(u8, u8)> = Vec::new();
     let mut round: usize = 0;
+
     for _ in 0..config.threshold {
-        let x = get_random(deps.as_ref(), round, config.dimension)?;
+        let x = generate_random_u8(&randomness, round, config.dimension);
         round += 1;
-        let y = get_random(deps.as_ref(), round, config.dimension)?;
+        let y = generate_random_u8(&randomness, round, config.dimension);
         round += 1;
         disabled_cells.push((x, y));
     }
+
     for i in 0..config.dimension {
         let mut row: Vec<i8> = Vec::new();
         for j in 0..config.dimension {
@@ -127,9 +135,12 @@ pub fn try_create_game(
         }
         grid.push(row);
     }
+
     let amount = info.funds[0]
         .amount
         .multiply_ratio(u128::from(100 - config.fee_percentage), 100u128);
+
+    let id = next_id(deps.storage)?;
     let game = Game {
         game_id: id,
         bet: Coin {
@@ -151,34 +162,12 @@ pub fn try_create_game(
         .add_attribute("id", id.to_string()))
 }
 
-fn get_random(deps: Deps, round: usize, to: u8) -> StdResult<u8> {
-    let config = CONFIG.load(deps.storage)?;
-    let response: LatestRandomResponse =
-        deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
-            contract_addr: config.terrand_address.to_string(),
-            msg: to_binary(&TerrandQueryMsg::LatestDrand {})?,
-        }))?;
-    let randomness = vector_as_u8_array(response.randomness.to_vec(), round);
-    let random_big_number = u16::from_be_bytes(randomness);
-    let random_ranged_number = random_big_number.wrapping_rem_euclid(to.into()) as u8;
-
-    Ok(random_ranged_number)
-}
-
-fn vector_as_u8_array(vector: Vec<u8>, start: usize) -> [u8; 2] {
-    let mut arr = [0u8; 2];
-    arr[0] = vector[start];
-    arr[1] = vector[start + 1];
-
-    arr
-}
-
 pub fn try_cancel_game(
     deps: DepsMut,
     info: MessageInfo,
     id: u64,
 ) -> Result<Response, ContractError> {
-    assert_is_locked(deps.as_ref(), &info.sender)?;
+    assert_is_locked(deps.as_ref())?;
     games().update(deps.storage, U64Key::new(id), |g| match g {
         None => Err(ContractError::GameNotFound {}),
         Some(mut game) => {
@@ -204,7 +193,7 @@ pub fn try_join_game(
     info: MessageInfo,
     id: u64,
 ) -> Result<Response, ContractError> {
-    assert_is_locked(deps.as_ref(), &info.sender)?;
+    assert_is_locked(deps.as_ref())?;
     let config = CONFIG.load(deps.storage)?;
     let amount = info.funds[0]
         .amount
@@ -242,7 +231,7 @@ pub fn try_make_move(
     x: u8,
     y: u8,
 ) -> Result<Response, ContractError> {
-    assert_is_locked(deps.as_ref(), &info.sender)?;
+    assert_is_locked(deps.as_ref())?;
     let mut maybe_winner: Option<Addr> = None;
     let config = CONFIG.load(deps.storage)?;
     games().update(deps.storage, U64Key::new(id), |g| match g {
@@ -295,13 +284,8 @@ fn try_update_leaderboard(deps: DepsMut, winner: Addr) -> Result<(), ContractErr
     Ok(())
 }
 
-pub fn try_withdraw_price(
-    env: Env,
-    deps: DepsMut,
-    info: MessageInfo,
-    id: u64,
-) -> Result<Response, ContractError> {
-    assert_is_locked(deps.as_ref(), &info.sender)?;
+pub fn try_withdraw_price(env: Env, deps: DepsMut, id: u64) -> Result<Response, ContractError> {
+    assert_is_locked(deps.as_ref())?;
     let game = query_game_by_id(deps.as_ref(), id)?.game;
     let msg = match game.state {
         GameState::Completed => {
@@ -334,103 +318,21 @@ pub fn try_withdraw_price(
         .add_attribute("method", "try_withdraw_price"));
 }
 
-fn get_mark_for_cell(game: &Game, x: usize, y: usize) -> Result<i8, ContractError> {
-    if game.grid[x][y] != 0 || game.grid[x][y] == -1 {
-        return Err(ContractError::MoveNotAllow {});
-    } else if game.host.to_string() == game.next_player {
-        Ok(1)
-    } else {
-        Ok(100)
-    }
-}
+pub fn try_withdraw_funds(
+    deps: DepsMut,
+    info: MessageInfo,
+    funds_to_withdraw: Vec<Coin>,
+) -> Result<Response, ContractError> {
+    ADMIN.assert_admin(deps.as_ref(), &info.sender)?;
+    let msg = SubMsg::new(BankMsg::Send {
+        to_address: info.sender.to_string(),
+        amount: funds_to_withdraw,
+    });
 
-fn get_next_player(game: &Game) -> Result<Addr, ContractError> {
-    if game.next_player == game.host {
-        Ok(game.opponent.clone())
-    } else {
-        Ok(game.host.clone())
-    }
-}
-
-fn is_game_completed(game: &Game, dimension: u16, threshold: u16) -> Result<bool, ContractError> {
-    let mut sum_vertically: u16 = 0;
-    let mut sum_horizontally: u16 = 0;
-    let mut sum_diagonally_x: u16 = 0;
-    let mut sum_diagonally_y: u16 = 0;
-    let opponent_threshold = 100u16 * threshold;
-
-    for x in 0..dimension {
-        let pos_x = usize::from(x);
-        for y in 0..dimension {
-            let pos_y = usize::from(y);
-            sum_vertically += if game.grid[pos_x][pos_y].is_negative() {
-                0
-            } else {
-                game.grid[pos_x][pos_y] as u16
-            };
-            sum_horizontally += if game.grid[pos_y][pos_x].is_negative() {
-                0
-            } else {
-                game.grid[pos_y][pos_x] as u16
-            };
-        }
-        if (sum_vertically == threshold)
-            || (sum_vertically == opponent_threshold)
-            || (sum_horizontally == threshold)
-            || (sum_horizontally == opponent_threshold)
-        {
-            return Ok(true);
-        }
-        sum_vertically = 0;
-        sum_horizontally = 0;
-
-        let diag_y = usize::from(dimension - 1 - x);
-        sum_diagonally_x += if game.grid[pos_x][pos_x].is_negative() {
-            0
-        } else {
-            game.grid[pos_x][pos_x] as u16
-        };
-        sum_diagonally_y += if game.grid[diag_y][pos_x].is_negative() {
-            0
-        } else {
-            game.grid[diag_y][pos_x] as u16
-        };
-    }
-
-    if (sum_diagonally_x == threshold)
-        || (sum_diagonally_x == opponent_threshold)
-        || (sum_diagonally_y == threshold)
-        || (sum_diagonally_y == opponent_threshold)
-    {
-        return Ok(true);
-    }
-
-    Ok(false)
-}
-
-fn assert_is_locked(deps: Deps, sender: &Addr) -> Result<(), ContractError> {
-    if ADMIN.is_admin(deps, sender)? {
-        Ok(())
-    } else {
-        let state = CONFIG.load(deps.storage)?;
-        if state.locked {
-            Err(ContractError::Locked {})
-        } else {
-            Ok(())
-        }
-    }
-}
-
-fn assert_host_bet(deps: Deps, bet: &Coin) -> Result<(), ContractError> {
-    let config = CONFIG.load(deps.storage)?;
-    if config.min_bet.denom != bet.denom {
-        return Err(ContractError::BetDenomInvalid {});
-    }
-    if config.min_bet.amount > bet.amount {
-        return Err(ContractError::BetAmounTooLow {});
-    }
-
-    Ok(())
+    return Ok(Response::new()
+        .add_submessage(msg)
+        .add_attribute("method", "try_withdraw_funds")
+    );
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

@@ -15,7 +15,10 @@
   },
   "testnet": {
     "terra-tictactoe": {
-      "codeId": "70462"
+      "codeId": "70531",
+      "contractAddresses": {
+        "default": "terra14yr6tvgp7wlh34kz0cds5zkpc0kgpqh6lpkn4y"
+      }
     }
   }
 }

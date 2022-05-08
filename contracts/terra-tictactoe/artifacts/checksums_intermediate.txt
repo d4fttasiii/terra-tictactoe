@@ -1,1 +1,1 @@
-28ce91f74e9fd723bba3855d5574fb97636e1d7c0d0196075a2c7a8e86553650  ./target/wasm32-unknown-unknown/release/terra_tictactoe.wasm
+a28c28aa2e0f1206a6056132895833ae5b66c928031efb7eae89b8a6b599722e  ./target/wasm32-unknown-unknown/release/terra_tictactoe.wasm

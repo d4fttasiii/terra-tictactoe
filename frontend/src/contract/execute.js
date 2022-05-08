@@ -7,15 +7,18 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const until = Date.now() + 1000 * 60 * 60;
 const untilInterval = Date.now() + 1000 * 60;
 
-const _exec = (msg, fee = new Fee(200000, { uluna: 10000 })) =>
+const _exec = (msg, fee = new Fee(150000, { uusd: 35000 })) =>
   async (wallet) => {
     const lcd = new LCDClient({
       URL: wallet.network.lcd,
       chainID: wallet.network.chainID,
+      gasAdjustment: 1.15
     });
 
     const { result } = await wallet.post({
       fee,
+      gasPrices: { uusd: 0.15 },
+      gasAdjustment: 1.15,
       msgs: [
         new MsgExecuteContract(
           wallet.walletAddress,
@@ -43,16 +46,18 @@ const _exec = (msg, fee = new Fee(200000, { uluna: 10000 })) =>
     }
   };
 
-const _execAndSend = (msg, bet, fee = new Fee(2000000, { uluna: 25000 })) =>
+const _execAndSend = (msg, bet, fee = new Fee(250000, { uusd: 50000 })) =>
   async (wallet) => {
     const lcd = new LCDClient({
       URL: wallet.network.lcd,
       chainID: wallet.network.chainID,
+      gasAdjustment: 1.15
     });
 
     const { result } = await wallet.post({
       fee,
-      gasPrices: { uluna: 0.01133 },
+      gasPrices: { uusd: 0.15 },
+      gasAdjustment: 1.15,
       msgs: [
         new MsgExecuteContract(
           wallet.walletAddress,

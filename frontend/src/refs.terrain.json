@@ -5,13 +5,19 @@
       "contractAddresses": {
         "default": "terra1tndcaqxkpc5ce9qee5ggqf430mr2z3pefe5wj6"
       }
+    },
+    "terra_tictactoe": {
+      "codeId": "7",
+      "contractAddresses": {
+        "default": "terra1pcknsatx5ceyfu6zvtmz3yr8auumzrdts4ax4a"
+      }
     }
   },
   "testnet": {
     "terra_tictactoe": {
-      "codeId": "70462",
+      "codeId": "70531",
       "contractAddresses": {
-        "default": "terra1ft9vtfr9nvqxltprze58cz3gedcgvda4u9xkga"
+        "default": "terra14yr6tvgp7wlh34kz0cds5zkpc0kgpqh6lpkn4y"
       }
     }
   }
